@@ -1,9 +1,6 @@
 # Rust-API
 Example API service with Rust.
 
-## Cargo Workspace
-Tutorial: [Cargo-worksapce]("https://doc.rust-lang.org/book/ch14-03-cargo-workspaces.html")
-
 ## Rust Web Framework
 ### Actix-Web
 Tutorial: [rust with actix-web](https://ithelp.ithome.com.tw/articles/10224273)     
