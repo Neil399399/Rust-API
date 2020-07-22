@@ -1,4 +1,6 @@
+use crate::postgres::user as userDB;
 use crate::traits::UserRepo;
+use diesel::prelude::*;
 use serde::Serialize;
 use thiserror::Error;
 use uuid::Uuid;
@@ -12,7 +14,7 @@ pub enum Error {
     Message(String),
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Queryable)]
 pub struct Users {
     pub id: Uuid,
     pub email: String,
@@ -45,27 +47,19 @@ impl UserPermission {
 }
 
 impl UserRepo for UserPermission {
-    fn get_user_full_name(&self, email: &str) -> Result<Users, Error> {
-        for user in &self.mock_users {
-            if email.to_owned() == user.email.to_owned() {
-                // need to clone and return
-                let user_clone = user.clone();
-                return Ok(user_clone);
-            }
-        }
-        Err(Error::UserNotFound(email.to_owned()))
+    fn get_user_full_name(&self, conn: &PgConnection, email: &str) -> Result<Users, Error> {
+        userDB::select_user_by_email(conn, email).map_err(|_| Error::UserNotFound(email.to_owned()))
     }
 
-    fn upate_user_name(&self, email: &str, firstname: &str, lastname: &str) -> Result<Uuid, Error> {
-        for user in &self.mock_users {
-            if email.to_owned() == user.email {
-                let mut user_clone = user.clone();
-                user_clone.firstname = firstname.to_owned();
-                user_clone.lastname = lastname.to_owned();
-                return Ok(user_clone.id);
-            }
-        }
-        Err(Error::UserNotFound(email.to_owned()))
+    fn upate_user_name(
+        &self,
+        conn: &PgConnection,
+        email: &str,
+        firstname: &str,
+        lastname: &str,
+    ) -> Result<Uuid, Error> {
+        userDB::update_user_data_by_email(conn, email, firstname, lastname)
+            .map_err(|_| Error::UserNotFound(email.to_owned()))
     }
 }
 

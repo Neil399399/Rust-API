@@ -4,6 +4,7 @@ use actix_cors::Cors;
 use actix_rt::System; //thread
 use actix_web::{middleware, web, App, HttpServer};
 use domain::user::UserPermission;
+use std::env;
 
 pub fn mono_server() -> std::io::Result<()> {
     // init logger
@@ -13,10 +14,14 @@ pub fn mono_server() -> std::io::Result<()> {
     System::new("server").block_on(async {
         // use port 80 will require sudo to run
         let bind_address = "127.0.0.1:3031";
+        // database setting
+        let db_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+        let pool = utils::create_pool(&db_url);
         let user_repo = UserPermission::new();
         // run future
         HttpServer::new(move || {
             App::new()
+                .data(pool.clone())
                 // enable logger
                 .wrap(middleware::Logger::default())
                 // cors

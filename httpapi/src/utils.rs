@@ -1,5 +1,7 @@
+use crate::PgPool;
 use ansi_term::Colour;
 use chrono::Utc;
+use diesel::prelude::*;
 use std::io::Write;
 
 pub fn init_logger(pattern: &str) {
@@ -30,4 +32,14 @@ impl<T: Debug, E: Debug> ResultLogger for Result<T, E> {
         log::debug!("{:?}", self);
         self
     }
+}
+
+pub fn create_pool(db_url: &str) -> PgPool {
+    use diesel::r2d2::ConnectionManager;
+
+    let manager = ConnectionManager::<PgConnection>::new(db_url);
+
+    r2d2::Pool::builder()
+        .build(manager)
+        .expect("Postgres connection pooling failed")
 }

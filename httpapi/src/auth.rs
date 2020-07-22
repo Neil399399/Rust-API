@@ -1,21 +1,9 @@
 use crate::models;
-use actix_web::{post, web, Error as AWError, HttpResponse, Responder};
+use crate::PgPool;
+use actix_web::{post, web, HttpResponse, Responder};
 use domain::traits::UserRepo;
-use domain::user::UserPermission;
+use domain::user::{Error, UserPermission, Users};
 use std::ops::Deref;
-
-// error type
-// #[derive(thiserror::Error, Debug)]
-// enum Error {
-//     #[error("No basic auth provided")]
-//     NoBasicAuth,
-
-//     #[error("UsersDomain error: {0}")]
-//     UsersDomain(#[from] UsersError),
-
-//     #[error("Server error: {0}")]
-//     Message(String),
-// }
 
 // structure
 #[derive(Debug)]
@@ -57,13 +45,19 @@ pub fn routes<T: 'static>(author: &str, user_repo: T) -> impl FnOnce(&mut web::S
 async fn user_info(
     auth: web::Data<Auth<UserPermission>>,
     request: web::Json<models::RequestUserInfo>,
+    pg_pool: web::Data<PgPool>,
 ) -> impl Responder {
     log::info!("request: {:?}", request);
-    auth.get_user_full_name(&request.email).map_or_else(
+    web::block(move || {
+        let conn = &pg_pool.get().map_err(|e| Error::Message(e.to_string()))?;
+        let user = auth.get_user_full_name(conn, &request.email)?;
+        Ok::<Users, Error>(user)
+    })
+    .await
+    .map_or_else(
         |_| HttpResponse::InternalServerError().finish(),
         |user| HttpResponse::Ok().json(user),
     )
-
     // for other way:
     // Result<HttpResponse, AWError>
     // auth.get_user_full_name("neil")
@@ -82,11 +76,16 @@ async fn user_info(
 async fn update_user(
     auth: web::Data<Auth<UserPermission>>,
     request: web::Json<models::RequestUpdateUser>,
+    pg_pool: web::Data<PgPool>,
 ) -> impl Responder {
     log::info!("request: {:?}", request);
-    auth.upate_user_name(&request.email, &request.firstname, &request.lastname)
-        .map_or_else(
-            |_| HttpResponse::InternalServerError().finish(),
-            |user| HttpResponse::Ok().json(user),
-        )
+    web::block(move || {
+        let conn = &pg_pool.get().map_err(|e| Error::Message(e.to_string()))?;
+        auth.upate_user_name(conn, &request.email, &request.firstname, &request.lastname)
+    })
+    .await
+    .map_or_else(
+        |_| HttpResponse::InternalServerError().finish(),
+        |user_uuid| HttpResponse::Ok().json(user_uuid),
+    )
 }
